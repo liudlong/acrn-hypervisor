@@ -186,3 +186,31 @@ targz-pkg:
 	$(MAKE) install DESTDIR=$(TARBALL_OUT)
 	cd $(TARBALL_OUT) && \
 	tar -zcvf $(ROOT_OUT)/acrn-$(FULL_VERSION).tar.gz *
+DOCKER := docker
+BUILD_CMD := docker build
+GIT_CMMMIT := $(shell git show -s --pretty=format:"%h" 2>/dev/null)
+GIT_COMMIT_CLEAN := $($(GIT_COMMIT) | sed -e "s/[^[:alnum:]]/-/g")
+DOCKER_DEV_IMAGE := acrndev$(if $(GIT_COMMIT_CLEAN),:$(GIT_COMMIT_CLEAN))
+#DOCKER_OPTS := --tag $(DOCKER_DEV_IMAGE) -p 192.168.0.100:5001:80
+
+DOCKER_MOUNT := $(if $(BIND_DIR),-v "$(CURDIR)/$(BIND_DIR):/Workspace/$(BIND_DIR)")
+DOCKER_FLAGS := $(DOCKER) run --rm -itd --privileged -p 8080:5001  $(DOCKER_MOUNT) acrndev
+DOCKER_RUN_DOCKER := $(DOCKER_FLAGS)
+
+
+docker_image:
+        $(BUILD_CMD) --tag acrndev -f "$(DOCKERFILE)" .
+
+shell:  ## ## start a shell inside the build env
+        $(DOCKER_RUN_DOCKER) make/flask.sh
+acrn-config:
+        docker run --rm -it --privileged \
+                -p 8080:5001 \
+                acrn/flask:v1 \
+
+dobuild:  ## validate all checks, build linux binaries
+        docker run --rm -it \
+                -v $(PWD):/Workspace/ \
+                acrn/build:v1 \
+                bash
+
