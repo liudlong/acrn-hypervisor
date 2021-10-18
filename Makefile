@@ -19,6 +19,27 @@ ifdef KCONFIG_FILE
   $(error To specify the target board and scenario, define BOARD/SCENARIO variables on the command line)
 endif
 
+#Use the .dockerenv to check if in Docker
+DOCKER_ENV := /.dockerenv
+ifeq ("$(wildcard $(DOCKER_ENV))","")
+  # Use the .makerc to switch if use Acrn Docker build enviroment
+  ifneq ($(findstring USE_DOCKER=y,$(strip $(shell cat .makerc))),)
+  DOCKERFILE ?= misc/docker/Dockerfile
+  CURRENT_UID := $(shell id -u)
+  CURRENT_GID := $(shell id -g)
+  DOCKERFILE_ID := $(shell git log --pretty=format:"%h" Makefile | head -1  | awk '{print $1}')
+  DOCKER_IMAGE_NAME := acrn$(MAJOR_VERSION).$(MINOR_VERSION):$(DOCKERFILE_ID)
+  endif
+
+.PHONY: docker-run
+docker-run:
+	docker build -t $(DOCKER_IMAGE_NAME) -f $(DOCKERFILE) .;
+	docker run -it --rm -v $(T):/Workspace/ \
+	$(DOCKER_IMAGE_NAME) \
+	--user $(CURRENT_UID):$(CURRENT_GID) \
+	make $(MAKEFLAGS) $(MAKECMDGOALS) $(MAKEOVERRIDES)
+%:
+else
 # BOARD/SCENARIO/BOARD_FILE/SCENARIO_FILE parameters sanity check:
 #
 # Only below usages are VALID: (target = all | hypervisor)
@@ -97,6 +118,7 @@ endef
 define install_acrn_debug
 	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) install-debug
 endef
+
 
 HV_MAKEOPTS := -C $(T)/hypervisor BOARD=$(BOARD) SCENARIO=$(SCENARIO) HV_OBJDIR=$(HV_OUT) RELEASE=$(RELEASE)
 
@@ -186,3 +208,4 @@ targz-pkg:
 	$(MAKE) install DESTDIR=$(TARBALL_OUT)
 	cd $(TARBALL_OUT) && \
 	tar -zcvf $(ROOT_OUT)/acrn-$(FULL_VERSION).tar.gz *
+endif
