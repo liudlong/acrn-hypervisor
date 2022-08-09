@@ -91,6 +91,14 @@ function copy_and_enlarge_image() {
         growpart ${dest_image} 1
 }
 
+function dump_proxy() {
+	local temp_file=$(mktemp /tmp/proxy.XXXX)
+
+	sudo apt-config dump | grep -i proxy > ${temp_file} 2>&1
+	sudo mv ${temp_file} proxy.conf
+
+}
+
 function resizing_guest_root() {
     local part_file=$1
 
@@ -136,6 +144,7 @@ function setup_hmi_vm_rootfs() {
     sudo cp setup_hmi_vm.sh logger.sh ${mount_point}/ && \
 	sudo cp ../build/userApp ${mount_point}/root && \
 	sudo cp ../build/histapp.py ${mount_point}/root && \
+	sudo cp proxy.conf ${mount_point}/etc/apt/apt.conf.d/proxy.conf && \
         sudo schroot -c acrn-guest bash /setup_hmi_vm.sh && \
         sudo rm ${mount_point}/setup_hmi_vm.sh ${mount_point}/logger.sh
 }
@@ -191,6 +200,7 @@ print_info "Guest image loop-mounted at /dev/${loop_dev}"
 try_step "Resizing guest root file system" resizing_guest_root /dev/mapper/${loop_dev}p1
 try_step "Mounting guest root file system at ${mount_point}" mount_filesystem /dev/mapper/${loop_dev}p1 ${mount_point}
 try_step "Preparing schroot configuration" create_schroot_config ${mount_point}
+try_step "Extracting network proxy configurations" dump_proxy
 
 if [[ ${vm_type} == "hmi-vm" ]]; then
     try_step "Initializing guest root file system for HMI VM" setup_hmi_vm_rootfs ${mount_point}

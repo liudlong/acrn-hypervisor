@@ -11,9 +11,10 @@ function umount_directory() {
 }
 
 function update_package_info() {
+    proxy=$(sudo apt-config dump | grep -i http::proxy | cut -d'"' -f 2)
     apt update
     apt install python3 python3-pip net-tools python3-matplotlib
-    pip3 install flask numpy pandas posix_ipc
+    pip3 install flask numpy pandas posix_ipc  --proxy=${proxy}
 
 }
 
